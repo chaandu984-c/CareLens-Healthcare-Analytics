@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CareLens | Healthcare Analytics</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header class="hero">
+  <div class="eyebrow">SYNTHETIC DATA • EDUCATIONAL PROJECT</div>
+  <h1>CareLens<span>.</span></h1>
+  <p>Healthcare Analytics & Patient Risk Indicator System</p>
+  <div class="notice">This dashboard is for classroom demonstration only. Indicators are not diagnoses and must never guide real patient care.</div>
+</header>
+<main>
+  <section class="toolbar">
+    <div><h2>Operational overview</h2><p>Live summaries from the MySQL database.</p></div>
+    <button id="refresh">Refresh analytics ↻</button>
+  </section>
+  <div id="error" class="error hidden"></div>
+  <section id="kpis" class="kpis">
+    <article class="kpi"><span>Synthetic patients</span><strong>—</strong></article>
+    <article class="kpi"><span>Recorded visits</span><strong>—</strong></article>
+    <article class="kpi"><span>Measurements</span><strong>—</strong></article>
+    <article class="kpi"><span>Educational flags</span><strong>—</strong></article>
+  </section>
+  <section class="grid">
+    <article class="panel"><h3>Visits by department</h3><img src="/api/charts/visits_by_department.png" alt="Bar chart showing visits by department" onerror="this.style.display='none'"></article>
+    <article class="panel"><h3>Monthly visit trend</h3><img src="/api/charts/monthly_visits.png" alt="Bar chart showing monthly visits" onerror="this.style.display='none'"></article>
+    <article class="panel"><h3>Illustrative flags by measurement</h3><img src="/api/charts/indicator_distribution.png" alt="Bar chart of educational flags" onerror="this.style.display='none'"></article>
+  </section>
+  <section class="panel">
+    <h3>Rule-based indicators for review</h3>
+    <p class="muted">Transparent classroom rules only; thresholds are invented for demonstration and are not clinically validated.</p>
+    <div class="table-wrap"><table><thead><tr><th>Patient ID</th><th>Measurement</th><th>Value</th><th>Illustrative rule</th><th>Status</th></tr></thead><tbody id="flags"><tr><td colspan="5">Loading…</td></tr></tbody></table></div>
+  </section>
+  <section class="panel">
+    <h3>API quick links</h3>
+    <div class="api-links"><a href="/api/health">Database health</a><a href="/api/patients">Synthetic patients</a><a href="/api/departments">Departments</a><a href="/api/analytics">Analytics JSON</a></div>
+  </section>
+</main>
+<footer>CareLens · Flask + MySQL + Pandas + NumPy + Matplotlib</footer>
+<script>
+async function loadAnalytics() {
+  const error = document.getElementById('error');
+  error.classList.add('hidden');
+  try {
+    const res = await fetch('/api/analytics');
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || data.error || 'Unable to load analytics');
+    const k = data.kpis;
+    const values = [k.synthetic_patient_count, k.visit_count, k.measurement_count, k.educational_flag_count];
+    document.querySelectorAll('#kpis .kpi strong').forEach((el, i) => el.textContent = values[i]);
+    const tbody = document.getElementById('flags');
+    tbody.innerHTML = '';
+    if (!data.educational_indicators.length) {
+      tbody.innerHTML = '<tr><td colspan="5">No educational flags found in the current sample.</td></tr>';
+    } else {
+      data.educational_indicators.forEach(f => {
+        const tr = document.createElement('tr');
+        [f.patient_id, f.measure_type, `${f.value} ${f.unit}`, f.rule_description, f.indicator].forEach(val => {
+          const td = document.createElement('td'); td.textContent = val; tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+    }
+    document.querySelectorAll('.grid img').forEach(img => { img.style.display='block'; img.src = img.src.split('?')[0] + '?t=' + Date.now(); });
+  } catch (e) { error.textContent = 'Could not load data: ' + e.message + '. Check that MySQL is running and schema.sql has been imported.'; error.classList.remove('hidden'); }
+}
+document.getElementById('refresh').addEventListener('click', loadAnalytics);
+loadAnalytics();
+</script>
+</body></html>
